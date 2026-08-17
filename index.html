@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscription Control Room</title>
+<style>
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1e222b;
+  --border: #2a2f3a;
+  --text: #e8eaed;
+  --text-dim: #9aa1ac;
+  --accent: #6c8cff;
+  --accent-dim: #34406e;
+  --good: #3ddc97;
+  --paused: #ffb84d;
+  --danger: #ff6b6b;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  font-size: 26px;
+  color: var(--accent);
+}
+
+.brand h1 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.08s ease, opacity 0.15s ease;
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #0b0d12;
+}
+
+.btn-primary:hover { opacity: 0.9; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+.btn-small {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  gap: 8px;
+}
+
+.chip {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chip.active {
+  background: var(--accent-dim);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.search-input {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  min-width: 220px;
+}
+
+.search-input:focus { outline: 1px solid var(--accent); }
+
+.sub-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sub-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sub-card.paused { opacity: 0.6; }
+
+.sub-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: #0b0d12;
+  flex-shrink: 0;
+}
+
+.sub-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-name {
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sub-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.status-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+.status-badge.active { background: rgba(61, 220, 151, 0.15); color: var(--good); }
+.status-badge.paused { background: rgba(255, 184, 77, 0.15); color: var(--paused); }
+
+.sub-cost {
+  text-align: right;
+  min-width: 90px;
+}
+
+.sub-cost-value {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.sub-cost-cycle {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.sub-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--text-dim);
+  margin-top: 60px;
+  font-size: 14px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.modal h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.modal input, .modal select {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.modal input:focus, .modal select:focus { outline: 1px solid var(--accent); }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.field-hint {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.manage-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.manage-link:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .summary { grid-template-columns: repeat(2, 1fr); }
+  .sub-card { flex-wrap: wrap; }
+  .sub-cost { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◎</span>
+      <h1>Subscription Control Room</h1>
+    </div>
+    <button id="addBtn" class="btn btn-primary">+ Add subscription</button>
+  </header>
+
+  <section class="summary">
+    <div class="stat-card">
+      <span class="stat-label">Monthly total</span>
+      <span class="stat-value" id="statMonthly">$0.00</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Yearly total</span>
+      <span class="stat-value" id="statYearly">$0.00</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Active</span>
+      <span class="stat-value" id="statActive">0</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Paused</span>
+      <span class="stat-value" id="statPaused">0</span>
+    </div>
+  </section>
+
+  <section class="controls">
+    <div class="filter-group" id="filterGroup">
+      <button class="chip active" data-filter="all">All</button>
+      <button class="chip" data-filter="active">Active</button>
+      <button class="chip" data-filter="paused">Paused</button>
+    </div>
+    <input type="search" id="searchInput" placeholder="Search subscriptions..." class="search-input">
+  </section>
+
+  <section id="listSection" class="sub-list"></section>
+
+  <p id="emptyState" class="empty-state" hidden>
+    No subscriptions yet. Click <strong>+ Add subscription</strong> to start building your library.
+  </p>
+</div>
+
+<div id="modalOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="modalTitle">Add subscription</h2>
+    <form id="subForm">
+      <label>
+        Name
+        <input type="text" id="fieldName" required placeholder="e.g. Netflix">
+      </label>
+      <div class="form-row">
+        <label>
+          Cost
+          <input type="number" id="fieldCost" required min="0" step="0.01" placeholder="15.99">
+        </label>
+        <label>
+          Billing cycle
+          <select id="fieldCycle">
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>
+          Category
+          <input type="text" id="fieldCategory" placeholder="Streaming, Software, ...">
+        </label>
+        <label>
+          Next renewal
+          <input type="date" id="fieldRenewal">
+        </label>
+      </div>
+      <label>
+        Manage link
+        <input type="url" id="fieldManageUrl" placeholder="https://...">
+      </label>
+      <p class="field-hint" id="manageUrlHint" hidden></p>
+      <div class="modal-actions">
+        <button type="button" id="cancelBtn" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "subscriptionControlRoom.subscriptions";
+
+const listSection = document.getElementById("listSection");
+const emptyState = document.getElementById("emptyState");
+const statMonthly = document.getElementById("statMonthly");
+const statYearly = document.getElementById("statYearly");
+const statActive = document.getElementById("statActive");
+const statPaused = document.getElementById("statPaused");
+const filterGroup = document.getElementById("filterGroup");
+const searchInput = document.getElementById("searchInput");
+const modalOverlay = document.getElementById("modalOverlay");
+const modalTitle = document.getElementById("modalTitle");
+const subForm = document.getElementById("subForm");
+const fieldName = document.getElementById("fieldName");
+const fieldCost = document.getElementById("fieldCost");
+const fieldCycle = document.getElementById("fieldCycle");
+const fieldCategory = document.getElementById("fieldCategory");
+const fieldRenewal = document.getElementById("fieldRenewal");
+const fieldManageUrl = document.getElementById("fieldManageUrl");
+const manageUrlHint = document.getElementById("manageUrlHint");
+
+const KNOWN_SERVICES = [
+  ["netflix", "https://www.netflix.com/account"],
+  ["spotify", "https://www.spotify.com/account/subscription/"],
+  ["disney", "https://www.disneyplus.com/account/subscription"],
+  ["amazon prime", "https://www.amazon.com/mc/pipelines/mypage"],
+  ["prime video", "https://www.amazon.com/mc/pipelines/mypage"],
+  ["apple music", "https://apps.apple.com/account/subscriptions"],
+  ["apple tv", "https://apps.apple.com/account/subscriptions"],
+  ["icloud", "https://apps.apple.com/account/subscriptions"],
+  ["youtube", "https://www.youtube.com/paid_memberships"],
+  ["hulu", "https://secure.hulu.com/account"],
+  ["max", "https://play.max.com/settings/subscription"],
+  ["hbo", "https://play.max.com/settings/subscription"],
+  ["adobe", "https://account.adobe.com/plans"],
+  ["microsoft 365", "https://account.microsoft.com/services"],
+  ["office 365", "https://account.microsoft.com/services"],
+  ["xbox", "https://account.microsoft.com/services"],
+  ["playstation", "https://www.playstation.com/en-us/playstation-network/subscriptions/"],
+  ["nintendo", "https://ec.nintendo.com/my/membership"],
+  ["google one", "https://one.google.com/settings"],
+  ["dropbox", "https://www.dropbox.com/account/plan"],
+  ["nytimes", "https://myaccount.nytimes.com/seg/subscription"],
+  ["new york times", "https://myaccount.nytimes.com/seg/subscription"],
+  ["audible", "https://www.audible.com/account/membership"],
+  ["peacock", "https://www.peacocktv.com/account/subscription"],
+  ["paramount", "https://www.paramountplus.com/account/subscription/"],
+  ["espn", "https://www.espn.com/espnplus/subscription"],
+  ["crunchyroll", "https://www.crunchyroll.com/account/membership"],
+  ["linkedin", "https://www.linkedin.com/premium/manage/"],
+  ["notion", "https://www.notion.so/my-plan"],
+  ["canva", "https://www.canva.com/settings/billing"],
+  ["grammarly", "https://account.grammarly.com/subscription"],
+  ["1password", "https://my.1password.com/account"],
+  ["chatgpt", "https://chatgpt.com/#settings/Subscription"],
+  ["openai", "https://chatgpt.com/#settings/Subscription"],
+  ["github", "https://github.com/settings/billing"],
+];
+
+function findKnownServiceUrl(name) {
+  const lower = name.trim().toLowerCase();
+  if (!lower) return null;
+  const match = KNOWN_SERVICES.find(([key]) => lower.includes(key));
+  return match ? match[1] : null;
+}
+
+let subscriptions = loadSubscriptions();
+let activeFilter = "all";
+let searchTerm = "";
+let editingId = null;
+
+function loadSubscriptions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSubscriptions() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(subscriptions));
+}
+
+function monthlyEquivalent(sub) {
+  if (sub.cycle === "yearly") return sub.cost / 12;
+  if (sub.cycle === "weekly") return (sub.cost * 52) / 12;
+  return sub.cost;
+}
+
+function formatMoney(value) {
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function avatarColor(name) {
+  const hues = [210, 260, 160, 20, 320, 40, 190];
+  let hash = 0;
+  for (const ch of name) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
+  const hue = hues[Math.abs(hash) % hues.length];
+  return `hsl(${hue}, 70%, 60%)`;
+}
+
+function initials(name) {
+  return name.trim().slice(0, 2).toUpperCase();
+}
+
+function render() {
+  const active = subscriptions.filter((s) => s.status === "active");
+  const paused = subscriptions.filter((s) => s.status === "paused");
+  const monthlyTotal = active.reduce((sum, s) => sum + monthlyEquivalent(s), 0);
+
+  statMonthly.textContent = formatMoney(monthlyTotal);
+  statYearly.textContent = formatMoney(monthlyTotal * 12);
+  statActive.textContent = active.length;
+  statPaused.textContent = paused.length;
+
+  let visible = subscriptions;
+  if (activeFilter !== "all") {
+    visible = visible.filter((s) => s.status === activeFilter);
+  }
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    visible = visible.filter(
+      (s) =>
+        s.name.toLowerCase().includes(term) ||
+        (s.category || "").toLowerCase().includes(term)
+    );
+  }
+  visible = [...visible].sort((a, b) => monthlyEquivalent(b) - monthlyEquivalent(a));
+
+  listSection.innerHTML = "";
+  emptyState.hidden = subscriptions.length > 0;
+  listSection.hidden = subscriptions.length === 0;
+
+  for (const sub of visible) {
+    listSection.appendChild(renderCard(sub));
+  }
+}
+
+function renderCard(sub) {
+  const card = document.createElement("div");
+  card.className = `sub-card${sub.status === "paused" ? " paused" : ""}`;
+
+  const renewalText = sub.nextRenewal
+    ? `Renews ${new Date(sub.nextRenewal + "T00:00:00").toLocaleDateString()}`
+    : "No renewal date set";
+  const categoryText = sub.category ? ` · ${sub.category}` : "";
+  const manageLinkHtml = sub.manageUrl
+    ? `<a class="manage-link" href="${escapeHtml(sub.manageUrl)}" target="_blank" rel="noopener noreferrer">Manage on site ↗</a>`
+    : "";
+
+  card.innerHTML = `
+    <div class="sub-avatar" style="background:${avatarColor(sub.name)}">${initials(sub.name)}</div>
+    <div class="sub-main">
+      <div class="sub-name">
+        ${escapeHtml(sub.name)}
+        <span class="status-badge ${sub.status}">${sub.status}</span>
+      </div>
+      <div class="sub-meta">${renewalText}${categoryText}</div>
+      ${manageLinkHtml}
+    </div>
+    <div class="sub-cost">
+      <div class="sub-cost-value">${formatMoney(sub.cost)}</div>
+      <div class="sub-cost-cycle">${sub.cycle}</div>
+    </div>
+    <div class="sub-actions"></div>
+  `;
+
+  const actions = card.querySelector(".sub-actions");
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "btn btn-ghost btn-small";
+  toggleBtn.textContent = sub.status === "active" ? "Pause" : "Resume";
+  toggleBtn.onclick = () => toggleStatus(sub.id);
+  actions.appendChild(toggleBtn);
+
+  const editBtn = document.createElement("button");
+  editBtn.className = "btn btn-ghost btn-small";
+  editBtn.textContent = "Edit";
+  editBtn.onclick = () => openModal(sub.id);
+  actions.appendChild(editBtn);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "btn btn-ghost btn-small";
+  deleteBtn.textContent = "Delete";
+  deleteBtn.onclick = () => deleteSubscription(sub.id);
+  actions.appendChild(deleteBtn);
+
+  return card;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function toggleStatus(id) {
+  const sub = subscriptions.find((s) => s.id === id);
+  if (!sub) return;
+  sub.status = sub.status === "active" ? "paused" : "active";
+  saveSubscriptions();
+  render();
+}
+
+function deleteSubscription(id) {
+  if (!confirm("Remove this subscription from your library?")) return;
+  subscriptions = subscriptions.filter((s) => s.id !== id);
+  saveSubscriptions();
+  render();
+}
+
+function openModal(id) {
+  editingId = id || null;
+  if (editingId) {
+    const sub = subscriptions.find((s) => s.id === editingId);
+    modalTitle.textContent = "Edit subscription";
+    fieldName.value = sub.name;
+    fieldCost.value = sub.cost;
+    fieldCycle.value = sub.cycle;
+    fieldCategory.value = sub.category || "";
+    fieldRenewal.value = sub.nextRenewal || "";
+    fieldManageUrl.value = sub.manageUrl || "";
+  } else {
+    modalTitle.textContent = "Add subscription";
+    subForm.reset();
+    fieldCycle.value = "monthly";
+  }
+  manageUrlHint.hidden = true;
+  modalOverlay.hidden = false;
+  fieldName.focus();
+}
+
+fieldName.addEventListener("input", () => {
+  const suggestion = findKnownServiceUrl(fieldName.value);
+  if (suggestion && !fieldManageUrl.value) {
+    manageUrlHint.textContent = `Suggested: ${suggestion} — added below, feel free to change it.`;
+    manageUrlHint.hidden = false;
+    fieldManageUrl.value = suggestion;
+  } else if (!suggestion) {
+    manageUrlHint.hidden = true;
+  }
+});
+
+function closeModal() {
+  modalOverlay.hidden = true;
+  editingId = null;
+}
+
+subForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const data = {
+    name: fieldName.value.trim(),
+    cost: parseFloat(fieldCost.value),
+    cycle: fieldCycle.value,
+    category: fieldCategory.value.trim(),
+    nextRenewal: fieldRenewal.value || null,
+    manageUrl: fieldManageUrl.value.trim() || null,
+  };
+  if (!data.name || isNaN(data.cost)) return;
+
+  if (editingId) {
+    const sub = subscriptions.find((s) => s.id === editingId);
+    Object.assign(sub, data);
+  } else {
+    subscriptions.push({
+      id: crypto.randomUUID(),
+      status: "active",
+      ...data,
+    });
+  }
+  saveSubscriptions();
+  closeModal();
+  render();
+});
+
+document.getElementById("addBtn").addEventListener("click", () => openModal(null));
+document.getElementById("cancelBtn").addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+filterGroup.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  activeFilter = btn.dataset.filter;
+  [...filterGroup.children].forEach((c) => c.classList.toggle("active", c === btn));
+  render();
+});
+
+searchInput.addEventListener("input", (e) => {
+  searchTerm = e.target.value;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
