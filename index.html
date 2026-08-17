@@ -60,6 +60,37 @@ body {
   margin: 0;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 4px;
+}
+
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.user-name {
+  font-size: 13px;
+  color: var(--text-dim);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .btn {
   border: none;
   border-radius: 8px;
@@ -337,6 +368,54 @@ body {
 
 .manage-link:hover { text-decoration: underline; }
 
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.auth-gate[hidden] { display: none; }
+
+.auth-card {
+  text-align: center;
+  max-width: 340px;
+}
+
+.auth-card .brand-mark {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.auth-card h1 {
+  font-size: 22px;
+  margin: 0 0 10px;
+}
+
+.auth-card p {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin: 0 0 22px;
+  line-height: 1.5;
+}
+
+.auth-error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 14px;
+}
+
+.loading-note {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  margin-top: 40px;
+}
+
 @media (max-width: 640px) {
   .summary { grid-template-columns: repeat(2, 1fr); }
   .sub-card { flex-wrap: wrap; }
@@ -345,13 +424,31 @@ body {
 </style>
 </head>
 <body>
-<div class="app">
+
+<div id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <span class="brand-mark">◎</span>
+    <h1>Subscription Control Room</h1>
+    <p>Sign in to save your subscriptions to your account and see them on any device.</p>
+    <button id="signInBtn" class="btn btn-primary">Sign in with Google</button>
+    <p class="auth-error" id="authError" hidden></p>
+  </div>
+</div>
+
+<div class="app" id="appRoot" hidden>
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark">◎</span>
       <h1>Subscription Control Room</h1>
     </div>
-    <button id="addBtn" class="btn btn-primary">+ Add subscription</button>
+    <div class="topbar-actions">
+      <div class="user-chip" id="userChip">
+        <img id="userAvatar" class="user-avatar" alt="">
+        <span class="user-name" id="userName"></span>
+      </div>
+      <button id="signOutBtn" class="btn btn-ghost btn-small">Sign out</button>
+      <button id="addBtn" class="btn btn-primary">+ Add subscription</button>
+    </div>
   </header>
 
   <section class="summary">
@@ -387,6 +484,8 @@ body {
   <p id="emptyState" class="empty-state" hidden>
     No subscriptions yet. Click <strong>+ Add subscription</strong> to start building your library.
   </p>
+
+  <p id="loadingNote" class="loading-note" hidden>Loading your subscriptions...</p>
 </div>
 
 <div id="modalOverlay" class="modal-overlay" hidden>
@@ -434,8 +533,31 @@ body {
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore-compat.js"></script>
 <script>
-const STORAGE_KEY = "subscriptionControlRoom.subscriptions";
+const firebaseConfig = {
+  projectId: "sub-hub-d6731",
+  appId: "1:344033059533:web:780ede2016a504f7e7ff84",
+  storageBucket: "sub-hub-d6731.firebasestorage.app",
+  apiKey: "AIzaSyC_yldSLmcCFMhIlO-GvG3P83v9WeBAgpI",
+  authDomain: "sub-hub-d6731.firebaseapp.com",
+  messagingSenderId: "344033059533",
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+const authGate = document.getElementById("authGate");
+const authError = document.getElementById("authError");
+const appRoot = document.getElementById("appRoot");
+const signInBtn = document.getElementById("signInBtn");
+const signOutBtn = document.getElementById("signOutBtn");
+const userAvatar = document.getElementById("userAvatar");
+const userName = document.getElementById("userName");
+const loadingNote = document.getElementById("loadingNote");
 
 const listSection = document.getElementById("listSection");
 const emptyState = document.getElementById("emptyState");
@@ -501,23 +623,61 @@ function findKnownServiceUrl(name) {
   return match ? match[1] : null;
 }
 
-let subscriptions = loadSubscriptions();
+let subscriptions = [];
 let activeFilter = "all";
 let searchTerm = "";
 let editingId = null;
+let currentUser = null;
+let unsubscribeSnapshot = null;
 
-function loadSubscriptions() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+function subsCollection() {
+  return db.collection("users").doc(currentUser.uid).collection("subscriptions");
+}
+
+signInBtn.addEventListener("click", () => {
+  authError.hidden = true;
+  auth.signInWithPopup(googleProvider).catch((err) => {
+    authError.textContent = `Sign-in failed: ${err.message}`;
+    authError.hidden = false;
+  });
+});
+
+signOutBtn.addEventListener("click", () => auth.signOut());
+
+auth.onAuthStateChanged((user) => {
+  currentUser = user;
+  if (unsubscribeSnapshot) {
+    unsubscribeSnapshot();
+    unsubscribeSnapshot = null;
   }
-}
 
-function saveSubscriptions() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(subscriptions));
-}
+  if (user) {
+    authGate.hidden = true;
+    appRoot.hidden = false;
+    userName.textContent = user.displayName || user.email || "";
+    userAvatar.src = user.photoURL || "";
+    subscriptions = [];
+    loadingNote.hidden = false;
+    listSection.hidden = true;
+    emptyState.hidden = true;
+
+    unsubscribeSnapshot = subsCollection().onSnapshot(
+      (snapshot) => {
+        subscriptions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        loadingNote.hidden = true;
+        render();
+      },
+      (err) => {
+        loadingNote.textContent = `Couldn't load your subscriptions: ${err.message}`;
+        loadingNote.hidden = false;
+      }
+    );
+  } else {
+    authGate.hidden = false;
+    appRoot.hidden = true;
+    subscriptions = [];
+  }
+});
 
 function monthlyEquivalent(sub) {
   if (sub.cycle === "yearly") return sub.cost / 12;
@@ -566,7 +726,7 @@ function render() {
   visible = [...visible].sort((a, b) => monthlyEquivalent(b) - monthlyEquivalent(a));
 
   listSection.innerHTML = "";
-  emptyState.hidden = subscriptions.length > 0;
+  emptyState.hidden = subscriptions.length > 0 || !loadingNote.hidden;
   listSection.hidden = subscriptions.length === 0;
 
   for (const sub of visible) {
@@ -635,16 +795,12 @@ function escapeHtml(str) {
 function toggleStatus(id) {
   const sub = subscriptions.find((s) => s.id === id);
   if (!sub) return;
-  sub.status = sub.status === "active" ? "paused" : "active";
-  saveSubscriptions();
-  render();
+  subsCollection().doc(id).update({ status: sub.status === "active" ? "paused" : "active" });
 }
 
 function deleteSubscription(id) {
   if (!confirm("Remove this subscription from your library?")) return;
-  subscriptions = subscriptions.filter((s) => s.id !== id);
-  saveSubscriptions();
-  render();
+  subsCollection().doc(id).delete();
 }
 
 function openModal(id) {
@@ -697,18 +853,11 @@ subForm.addEventListener("submit", (e) => {
   if (!data.name || isNaN(data.cost)) return;
 
   if (editingId) {
-    const sub = subscriptions.find((s) => s.id === editingId);
-    Object.assign(sub, data);
+    subsCollection().doc(editingId).update(data);
   } else {
-    subscriptions.push({
-      id: crypto.randomUUID(),
-      status: "active",
-      ...data,
-    });
+    subsCollection().add({ status: "active", ...data });
   }
-  saveSubscriptions();
   closeModal();
-  render();
 });
 
 document.getElementById("addBtn").addEventListener("click", () => openModal(null));
@@ -729,8 +878,6 @@ searchInput.addEventListener("input", (e) => {
   searchTerm = e.target.value;
   render();
 });
-
-render();
 </script>
 </body>
 </html>
